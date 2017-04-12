@@ -865,8 +865,10 @@ func (server *Server) loadConfig(configurations types.Configurations, globalConf
 						if sticky != nil {
 							log.Debugf("Sticky session with cookie %v", cookieName)
 							rebalancer, _ = roundrobin.NewRebalancer(rr, roundrobin.RebalancerLogger(oxyLogger), roundrobin.RebalancerStickySession(sticky))
+							lb = middlewares.NewStickyHeader(rebalancer)
+						} else {
+							lb = rebalancer
 						}
-						lb = rebalancer
 						if err := configureLBServers(rebalancer, config, frontend); err != nil {
 							log.Errorf("Skipping frontend %s...", frontendName)
 							continue frontend
@@ -886,8 +888,10 @@ func (server *Server) loadConfig(configurations types.Configurations, globalConf
 							} else {
 								rr, _ = roundrobin.New(fwd, roundrobin.EnableStickySession(sticky))
 							}
+							lb = middlewares.NewStickyHeader(rr)
+						} else {
+							lb = rr
 						}
-						lb = rr
 						if err := configureLBServers(rr, config, frontend); err != nil {
 							log.Errorf("Skipping frontend %s...", frontendName)
 							continue frontend
