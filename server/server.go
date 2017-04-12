@@ -628,8 +628,11 @@ func (server *Server) loadConfig(configurations configs, globalConfiguration Glo
 						if stickysession {
 							log.Debugf("Sticky session with cookie %v", cookiename)
 							rebalancer, _ = roundrobin.NewRebalancer(rr, roundrobin.RebalancerLogger(oxyLogger), roundrobin.RebalancerStickySession(sticky))
+							lb = middlewares.NewStickyHeader(rebalancer)
+						} else {
+							rebalancer, _ = roundrobin.NewRebalancer(rr, roundrobin.RebalancerLogger(oxyLogger))
+							lb = rebalancer
 						}
-						lb = rebalancer
 						for serverName, server := range configuration.Backends[frontend.Backend].Servers {
 							url, err := url.Parse(server.URL)
 							if err != nil {
@@ -655,8 +658,10 @@ func (server *Server) loadConfig(configurations configs, globalConfiguration Glo
 						if stickysession {
 							log.Debugf("Sticky session with cookie %v", cookiename)
 							rr, _ = roundrobin.New(saveBackend, roundrobin.EnableStickySession(sticky))
+							lb = middlewares.NewStickyHeader(rr)
+						} else {
+							lb = rr
 						}
-						lb = rr
 						for serverName, server := range configuration.Backends[frontend.Backend].Servers {
 							url, err := url.Parse(server.URL)
 							if err != nil {
