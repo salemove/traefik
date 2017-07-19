@@ -27,12 +27,19 @@ func NewStickyHeader(next http.Handler) *StickyHeader {
 
 type backendHeaderWriter struct {
 	http.ResponseWriter
+	backendFromQueryString string
 }
 
 func (w *backendHeaderWriter) WriteHeader(status int) {
 	if backendLocation := w.getResponseCookieByName(cookieName); backendLocation != "" {
 		// Found backend location cookie. Adding it to headers.
 		w.ResponseWriter.Header().Set(headerName, backendLocation)
+	} else if w.backendFromQueryString != "" {
+		// Backend location from the query string was valid. Add it to Set-Cookie
+		// header to ensure cookies and headers are in sync.
+		cookie := &http.Cookie{Name: cookieName, Value: w.backendFromQueryString}
+		http.SetCookie(w.ResponseWriter, cookie)
+		w.ResponseWriter.Header().Set(headerName, w.backendFromQueryString)
 	}
 	w.ResponseWriter.WriteHeader(status)
 }
@@ -48,17 +55,22 @@ func (w *backendHeaderWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 }
 
 func (sh *StickyHeader) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	backendFromQueryString := ""
+
 	if _, err := req.Cookie(cookieName); err == http.ErrNoCookie {
 		// Cookie is not set. Checking query string for the backend.
 		queryValues := req.URL.Query()
 		if backendLocation := queryValues.Get(queryName); backendLocation != "" {
-			// Got the backend from the header. Setting it as a cookie for sticky module to work.
+			// Found the backend from the query string. Storing for later use.
+			backendFromQueryString = backendLocation
+
+			// Setting the backend as a cookie for the sticky module to work.
 			cookie := &http.Cookie{Name: cookieName, Value: backendLocation}
 			req.AddCookie(cookie)
 		}
 	}
 
-	writer := &backendHeaderWriter{w}
+	writer := &backendHeaderWriter{w, backendFromQueryString}
 	writer.addOrAppendHeader("Access-Control-Expose-Headers", headerName)
 	sh.next.ServeHTTP(writer, req)
 }
