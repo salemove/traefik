@@ -75,18 +75,32 @@ func (sh *StickyHeader) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	sh.next.ServeHTTP(writer, req)
 }
 
+// Extracted from https://golang.org/src/net/http/cookie.go #readSetCookies for
+// extracing cookie value.
 func (w *backendHeaderWriter) getResponseCookieByName(name string) string {
 	headers := w.ResponseWriter.Header()
 	setCookies := headers["Set-Cookie"]
 
 	for _, cookie := range setCookies {
-		elements := strings.Split(cookie, "=")
-		name, value := elements[0], elements[1]
+		parts := strings.Split(strings.TrimSpace(cookie), ";")
+		if len(parts) == 1 && parts[0] == "" {
+			continue
+		}
+
+		parts[0] = strings.TrimSpace(parts[0])
+
+		j := strings.Index(parts[0], "=")
+		if j < 0 {
+			continue
+		}
+
+		name, value := parts[0][:j], parts[0][j+1:]
 
 		if name == cookieName {
 			return value
 		}
 	}
+
 	return ""
 }
 

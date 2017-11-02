@@ -42,6 +42,26 @@ func TestStickyHeaderSetWhenResponseHasStickyCookie(t *testing.T) {
 	assert.Equal(t, "X-Traefik-Backend", response.Header.Get("Access-Control-Expose-Headers"), "should have backend header")
 }
 
+func TestStickyHeaderSetWhenResponseHasStickyCookieWithPath(t *testing.T) {
+	backend := "http://1.2.3.4"
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie := http.Cookie{Name: "_TRAEFIK_BACKEND", Value: backend, Path: "/path"}
+		http.SetCookie(w, &cookie)
+		w.WriteHeader(http.StatusOK)
+	})
+	stickyHeader := NewStickyHeader(handler)
+	responseWriter := httptest.NewRecorder()
+
+	request, _ := http.NewRequest("GET", "http://example.com", nil)
+	stickyHeader.ServeHTTP(responseWriter, request)
+
+	response := responseWriter.Result()
+	assert.Equal(t, http.StatusOK, response.StatusCode, "should be successful request")
+	assert.Equal(t, backend, response.Header.Get("X-Traefik-Backend"), "should have backend header")
+	assert.Equal(t, "X-Traefik-Backend", response.Header.Get("Access-Control-Expose-Headers"), "should have backend header")
+}
+
 func TestStickyHeaderSetWhenRequestWithBackendHeader(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, _ := r.Cookie("_TRAEFIK_BACKEND")
