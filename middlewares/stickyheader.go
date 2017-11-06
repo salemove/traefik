@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const (
@@ -32,15 +33,24 @@ type backendHeaderWriter struct {
 
 func (w *backendHeaderWriter) WriteHeader(status int) {
 	if backendLocation := w.getResponseCookieByName(cookieName); backendLocation != "" {
+		// Temporary: Deleting /socket.io/ cookie. We're using sticky cookies with / path only.
+		tempCookie := &http.Cookie{Name: cookieName, Value: "", Path: "/socket.io", MaxAge: 0, Expires: time.Now().Add(-100 * time.Hour)}
+		http.SetCookie(w.ResponseWriter, tempCookie)
+
 		// Found backend location cookie. Adding it to headers.
 		w.ResponseWriter.Header().Set(headerName, backendLocation)
 	} else if w.backendFromQueryString != "" {
+		// Temporary: Deleting /socket.io/ cookie. We're using sticky cookies with / path only.
+		tempCookie := &http.Cookie{Name: cookieName, Value: "", Path: "/socket.io", MaxAge: 0, Expires: time.Now().Add(-100 * time.Hour)}
+		http.SetCookie(w.ResponseWriter, tempCookie)
+
 		// Backend location from the query string was valid. Add it to Set-Cookie
 		// header to ensure cookies and headers are in sync.
-		cookie := &http.Cookie{Name: cookieName, Value: w.backendFromQueryString}
+		cookie := &http.Cookie{Name: cookieName, Value: w.backendFromQueryString, Path: "/"}
 		http.SetCookie(w.ResponseWriter, cookie)
 		w.ResponseWriter.Header().Set(headerName, w.backendFromQueryString)
 	}
+
 	w.ResponseWriter.WriteHeader(status)
 }
 

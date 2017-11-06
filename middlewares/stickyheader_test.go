@@ -26,7 +26,7 @@ func TestStickyHeaderSetWhenResponseHasStickyCookie(t *testing.T) {
 	backend := "http://1.2.3.4"
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie := http.Cookie{Name: "_TRAEFIK_BACKEND", Value: backend}
+		cookie := http.Cookie{Name: "_TRAEFIK_BACKEND", Value: backend, Path: "/"}
 		http.SetCookie(w, &cookie)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -46,7 +46,7 @@ func TestStickyHeaderSetWhenResponseHasStickyCookieWithPath(t *testing.T) {
 	backend := "http://1.2.3.4"
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie := http.Cookie{Name: "_TRAEFIK_BACKEND", Value: backend, Path: "/path"}
+		cookie := http.Cookie{Name: "_TRAEFIK_BACKEND", Value: backend, Path: "/"}
 		http.SetCookie(w, &cookie)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -98,7 +98,7 @@ func TestStickyHeaderSetsResponseCookieWhenValidCustomHeader(t *testing.T) {
 
 func TestStickyHeaderSetsResponseCookieWhenInvalidCustomHeader(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie := http.Cookie{Name: "_TRAEFIK_BACKEND", Value: "http://2.3.4.5"}
+		cookie := http.Cookie{Name: "_TRAEFIK_BACKEND", Value: "http://2.3.4.5", Path: "/"}
 		http.SetCookie(w, &cookie)
 		w.WriteHeader(http.StatusOK)
 	})
@@ -139,7 +139,7 @@ func TestStickyHeaderPrefersBackendFromCookie(t *testing.T) {
 
 func getResponseCookieByName(response *http.Response, name string) string {
 	for _, cookie := range response.Cookies() {
-		if name == cookie.Name {
+		if cookie.Path == "/" && name == cookie.Name {
 			return cookie.Value
 		}
 	}
