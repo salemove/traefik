@@ -137,6 +137,28 @@ func TestStickyHeaderPrefersBackendFromCookie(t *testing.T) {
 	assert.Equal(t, 0, len(response.Header["X-Traefik-Backend"]), "should have no sticky header")
 }
 
+func TestStickyHeaderPrefersNonEmptyBackendFromCookie(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, _ := r.Cookie("_TRAEFIK_BACKEND")
+		assert.Equal(t, "http://0.0.0.2", cookie.Value, "should have a backend from cookie")
+		w.WriteHeader(http.StatusOK)
+	})
+	stickyHeader := NewStickyHeader(handler)
+	responseWriter := httptest.NewRecorder()
+
+	request, _ := http.NewRequest("GET", "http://example.com", nil)
+	request.AddCookie(&http.Cookie{Name: "_TRAEFIK_BACKEND", Value: ""})
+	request.AddCookie(&http.Cookie{Name: "_TRAEFIK_BACKEND", Value: "http://0.0.0.2"})
+	stickyHeader.ServeHTTP(responseWriter, request)
+
+	response := responseWriter.Result()
+	assert.Equal(t, http.StatusOK, response.StatusCode, "should be successful request")
+
+	responseCookie := getResponseCookieByName(response, "_TRAEFIK_BACKEND")
+	assert.Equal(t, "", responseCookie, "should have no response cookie")
+	assert.Equal(t, 0, len(response.Header["X-Traefik-Backend"]), "should have no sticky header")
+}
+
 func getResponseCookieByName(response *http.Response, name string) string {
 	for _, cookie := range response.Cookies() {
 		if cookie.Path == "/" && name == cookie.Name {

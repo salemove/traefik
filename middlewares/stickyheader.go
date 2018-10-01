@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"regexp"
 )
 
 const (
@@ -55,6 +56,11 @@ func (w *backendHeaderWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return w.ResponseWriter.(http.Hijacker).Hijack()
 }
 
+// It's possible that multiple backend cookies are set, some empty, some
+// filled. In this case, we need to minimally strip the empty backend cookie
+// definitions that precede other cookie definitions.
+var /* const */ emptyBackendCookie = regexp.MustCompile("_TRAEFIK_BACKEND=;")
+
 func (sh *StickyHeader) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	backendFromQueryString := ""
 
@@ -69,11 +75,17 @@ func (sh *StickyHeader) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			cookie := &http.Cookie{Name: cookieName, Value: backendLocation}
 			req.AddCookie(cookie)
 		}
+	} else if emptyBackendCookiePresent(req) {
+		req.Header.Set("COOKIE", emptyBackendCookie.ReplaceAllString(req.Header.Get("COOKIE"), ""))
 	}
 
 	writer := &backendHeaderWriter{w, backendFromQueryString}
 	writer.addOrAppendHeader("Access-Control-Expose-Headers", headerName)
 	sh.next.ServeHTTP(writer, req)
+}
+
+func emptyBackendCookiePresent(req * http.Request) bool {
+	return emptyBackendCookie.MatchString(req.Header.Get("COOKIE"))
 }
 
 // Extracted from https://golang.org/src/net/http/cookie.go #readSetCookies for
